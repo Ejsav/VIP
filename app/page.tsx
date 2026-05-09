@@ -1,4 +1,5 @@
 import { Hero } from "@/components/sections/Hero";
+import { CuratedExperiences } from "@/components/sections/CuratedExperiences";
 import { FeaturedCities } from "@/components/sections/FeaturedCities";
 import { AccessMap } from "@/components/sections/AccessMap";
 import { AccessTypes } from "@/components/sections/AccessTypes";
@@ -13,6 +14,7 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      <CuratedExperiences />
       <FeaturedCities />
       <AccessMap />
       <AccessTypes />

@@ -12,15 +12,16 @@ export const CONFIRMATION_MESSAGE =
 export const TAGLINE = "Private access to the city after dark.";
 
 export const NAV_LINKS = [
+  { label: "Experiences", href: "/experiences" },
   { label: "Cities", href: "/cities" },
   { label: "Access Drops", href: "/access-drops" },
   { label: "Membership", href: "/membership" },
-  { label: "How It Works", href: "/how-it-works" },
   { label: "Case Study", href: "/case-study" },
 ] as const;
 
 export const FOOTER_LINKS = {
   product: [
+    { label: "Experiences", href: "/experiences" },
     { label: "Cities", href: "/cities" },
     { label: "Venues", href: "/venues" },
     { label: "Access Drops", href: "/access-drops" },

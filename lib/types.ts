@@ -91,3 +91,102 @@ export type MembershipTier = {
   highlightFeatures: string[];
   badge: string;
 };
+
+/* ---------- Curated experiences + city style layer ---------- */
+
+export type CityStyleId =
+  | "miami-energy"
+  | "nyc-private-room"
+  | "vegas-table-service"
+  | "la-rooftop"
+  | "boston-supper-club"
+  | "london-members-club"
+  | "dubai-skyline"
+  | "ibiza-late-night";
+
+export type CityStyle = {
+  id: CityStyleId;
+  name: string;
+  citySlug: string;
+  cityName: string;
+  region: string;
+  shortLabel: string;
+  description: string;
+  signature: string[];
+  tempo: "Editorial" | "Late-tempo" | "High-energy" | "Cinematic";
+};
+
+export type ExperienceStatus =
+  | "Curated"
+  | "Limited Window"
+  | "Priority Route"
+  | "Concierge Pick"
+  | "Private Hold"
+  | "High Demand";
+
+export type Atmosphere =
+  | "Editorial / Quiet luxury"
+  | "Late tempo / Lounge"
+  | "High-energy / Driving"
+  | "Rooftop / Open-air"
+  | "Members / Private";
+
+export type GroupFit = "1-2" | "3-4" | "5-6" | "7-10" | "11-14" | "15-20" | "20+";
+
+export type SpendRange =
+  | "Under $1,000"
+  | "$1,000 – $2,500"
+  | "$2,500 – $5,000"
+  | "$5,000 – $10,000"
+  | "$10,000+";
+
+export type Experience = {
+  id: string;
+  slug: string;
+  name: string;
+  cityStyle: CityStyleId;
+  cityStyleName: string;
+  accessType: AccessTypeId;
+  accessTypeName: string;
+  atmosphere: Atmosphere;
+  groupFit: GroupFit[];
+  spendRange: SpendRange[];
+  status: ExperienceStatus;
+  arrivalWindow: string;
+  description: string;
+  positioning: string;
+  tags: string[];
+  featured: boolean;
+  minTier: "Guest" | "Select" | "Black Card";
+};
+
+/* ---------- Concierge request + match ---------- */
+
+export type ConciergeRequest = {
+  cityStyle?: CityStyleId | "";
+  accessType?: AccessTypeId | "";
+  atmosphere?: Atmosphere | "";
+  groupSize?: GroupFit | "";
+  spendRange?: SpendRange | "";
+  arrivalWindow?: string;
+  date?: string;
+  occasion?: string;
+  notes?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  tier?: "guest" | "select" | "black-card";
+};
+
+export type MatchConfidence = "Light Match" | "Strong Match" | "Priority Match";
+
+export type MatchResult = {
+  experience: Experience;
+  confidence: MatchConfidence;
+  score: number; // 0-100
+  why: string[];
+  arrivalWindow: string;
+  groupFitNote: string;
+  spendNote: string;
+  alternates: Experience[];
+};

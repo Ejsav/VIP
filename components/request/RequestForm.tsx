@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import {
   Check,
   ChevronLeft,
@@ -17,35 +18,31 @@ import {
   Mail,
   ClipboardCheck,
   CheckCircle2,
+  ArrowUpRight,
 } from "lucide-react";
-import { cities } from "@/data/cities";
+import { cityStyles, getCityStyle } from "@/data/cityStyles";
 import { accessTypes } from "@/data/accessTypes";
 import { CONFIRMATION_MESSAGE } from "@/lib/copy";
 import { cn } from "@/lib/cn";
+import { matchAccess } from "@/lib/matchAccess";
+import { RequestSummary } from "@/components/concierge/RequestSummary";
+import { AccessMatch } from "@/components/concierge/AccessMatch";
+import type {
+  Atmosphere,
+  ConciergeRequest,
+  GroupFit,
+  SpendRange,
+} from "@/lib/types";
 
-type FormState = {
-  city: string;
-  accessType: string;
-  date: string;
-  partySize: string;
-  occasion: string;
-  vibe: string;
-  budgetRange: string;
-  name: string;
-  email: string;
-  phone: string;
-  notes: string;
-  tier: string;
-};
-
-const initial: FormState = {
-  city: "",
+const initial: ConciergeRequest = {
+  cityStyle: "",
   accessType: "",
   date: "",
-  partySize: "",
+  groupSize: "",
   occasion: "",
-  vibe: "",
-  budgetRange: "",
+  atmosphere: "",
+  spendRange: "",
+  arrivalWindow: "",
   name: "",
   email: "",
   phone: "",
@@ -53,35 +50,27 @@ const initial: FormState = {
   tier: "guest",
 };
 
-const partySizeOptions = [
-  "1 to 2",
-  "3 to 4",
-  "5 to 6",
-  "7 to 10",
-  "11 to 14",
-  "15 to 20",
-  "20+",
-];
+const groupSizeOptions: GroupFit[] = ["1-2", "3-4", "5-6", "7-10", "11-14", "15-20", "20+"];
 
 const occasionOptions = [
-  { value: "Casual night out", icon: "✦" },
-  { value: "Birthday", icon: "✦" },
-  { value: "Business", icon: "✦" },
-  { value: "Date night", icon: "✦" },
-  { value: "Bachelor / Bachelorette", icon: "✦" },
-  { value: "Special celebration", icon: "✦" },
-  { value: "VIP visitor", icon: "✦" },
+  "Casual night out",
+  "Birthday",
+  "Business",
+  "Date night",
+  "Bachelor / Bachelorette",
+  "Special celebration",
+  "VIP visitor",
 ];
 
-const vibeOptions = [
-  { value: "Editorial / quiet luxury", desc: "Tailored, slow tempo." },
-  { value: "Late tempo / lounge", desc: "Music led, post-midnight." },
-  { value: "High-energy / club", desc: "Driving floor, peak tempo." },
-  { value: "Rooftop / open-air", desc: "View first, slow build." },
-  { value: "Members / private", desc: "Closed door, controlled room." },
+const atmosphereOptions: { value: Atmosphere; desc: string }[] = [
+  { value: "Editorial / Quiet luxury", desc: "Tailored, slow tempo, controlled room." },
+  { value: "Late tempo / Lounge", desc: "Music led, post-midnight close." },
+  { value: "High-energy / Driving", desc: "Peak floor, hosted table, full tempo." },
+  { value: "Rooftop / Open-air", desc: "View first, slow build, skyline tempo." },
+  { value: "Members / Private", desc: "Closed door, controlled room, discretion." },
 ];
 
-const budgetOptions = [
+const spendOptions: { value: SpendRange; tier: string; note: string }[] = [
   { value: "Under $1,000", tier: "Guest", note: "Standard guest list level." },
   { value: "$1,000 – $2,500", tier: "Select", note: "Tables and small groups." },
   { value: "$2,500 – $5,000", tier: "Select", note: "Premium tables, mid-tier." },
@@ -90,55 +79,66 @@ const budgetOptions = [
 ];
 
 const steps = [
-  { n: 1, label: "City", icon: MapPin },
+  { n: 1, label: "Market", icon: MapPin },
   { n: 2, label: "Access", icon: Sparkles },
   { n: 3, label: "Party", icon: Users },
   { n: 4, label: "Vibe", icon: Wine },
-  { n: 5, label: "Budget", icon: DollarSign },
+  { n: 5, label: "Spend", icon: DollarSign },
   { n: 6, label: "Contact", icon: Mail },
-  { n: 7, label: "Review", icon: ClipboardCheck },
+  { n: 7, label: "Match", icon: ClipboardCheck },
 ];
 
 export function RequestForm() {
   const params = useSearchParams();
   const [step, setStep] = useState(1);
-  const [data, setData] = useState<FormState>(initial);
+  const [data, setData] = useState<ConciergeRequest>(initial);
   const [submitted, setSubmitted] = useState(false);
 
-  // Prefill from URL
+  // URL prefill — supports both legacy ?city=miami and new ?cityStyle=miami-energy
   useEffect(() => {
-    const next: Partial<FormState> = {};
-    const c = params.get("city");
+    const next: Partial<ConciergeRequest> = {};
+    const cityStyleParam = params.get("cityStyle");
+    const cityParam = params.get("city");
     const at = params.get("accessType");
     const tier = params.get("tier");
-    if (c && cities.find((x) => x.slug === c)) next.city = c;
-    if (at && accessTypes.find((x) => x.id === at)) next.accessType = at;
-    if (tier) next.tier = tier;
+
+    if (cityStyleParam && cityStyles.find((s) => s.id === cityStyleParam)) {
+      next.cityStyle = cityStyleParam as ConciergeRequest["cityStyle"];
+    } else if (cityParam) {
+      const matched = cityStyles.find((s) => s.citySlug === cityParam);
+      if (matched) next.cityStyle = matched.id;
+    }
+    if (at && accessTypes.find((x) => x.id === at)) {
+      next.accessType = at as ConciergeRequest["accessType"];
+    }
+    if (tier && (tier === "guest" || tier === "select" || tier === "black-card")) {
+      next.tier = tier;
+    }
+
     if (Object.keys(next).length) {
       setData((d) => ({ ...d, ...next }));
-      // Skip to first incomplete step if prefilled
-      if (next.city && !next.accessType) setStep(2);
-      if (next.city && next.accessType) setStep(3);
+      if (next.cityStyle && !next.accessType) setStep(2);
+      if (next.cityStyle && next.accessType) setStep(3);
     }
   }, [params]);
 
-  const update = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+  const update = <K extends keyof ConciergeRequest>(k: K, v: ConciergeRequest[K]) =>
     setData((d) => ({ ...d, [k]: v }));
 
   const canAdvance = useMemo(() => {
     switch (step) {
       case 1:
-        return !!data.city;
+        return !!data.cityStyle;
       case 2:
         return !!data.accessType;
       case 3:
-        return !!data.partySize && !!data.date;
+        return !!data.groupSize && !!data.date;
       case 4:
-        return !!data.vibe && !!data.occasion;
+        return !!data.atmosphere && !!data.occasion;
       case 5:
-        return !!data.budgetRange;
+        return !!data.spendRange;
       case 6:
-        return data.name.length >= 2 && /\S+@\S+\.\S+/.test(data.email);
+        return (data.name?.length ?? 0) >= 2 && /\S+@\S+\.\S+/.test(data.email ?? "");
       case 7:
         return true;
       default:
@@ -148,7 +148,6 @@ export function RequestForm() {
 
   const next = () => setStep((s) => Math.min(7, s + 1));
   const back = () => setStep((s) => Math.max(1, s - 1));
-
   const submit = () => setSubmitted(true);
   const reset = () => {
     setData(initial);
@@ -160,109 +159,129 @@ export function RequestForm() {
 
   return (
     <div className="relative">
-      <Stepper current={step} onJump={(n) => n < step && setStep(n)} />
-
-      <div className="mt-8 md:mt-10 rounded-3xl border border-smoke bg-charcoal/60 backdrop-blur-xl shadow-panel">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, x: 12 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -12 }}
-            transition={{ duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
-            className="p-6 md:p-10 min-h-[60vh] md:min-h-[55vh] flex flex-col"
-          >
-            {step === 1 && (
-              <StepCity
-                value={data.city}
-                onChange={(v) => update("city", v)}
-              />
-            )}
-            {step === 2 && (
-              <StepAccess
-                value={data.accessType}
-                onChange={(v) => update("accessType", v)}
-              />
-            )}
-            {step === 3 && (
-              <StepParty
-                size={data.partySize}
-                date={data.date}
-                onSize={(v) => update("partySize", v)}
-                onDate={(v) => update("date", v)}
-              />
-            )}
-            {step === 4 && (
-              <StepVibe
-                vibe={data.vibe}
-                occasion={data.occasion}
-                onVibe={(v) => update("vibe", v)}
-                onOccasion={(v) => update("occasion", v)}
-              />
-            )}
-            {step === 5 && (
-              <StepBudget
-                value={data.budgetRange}
-                onChange={(v) => update("budgetRange", v)}
-              />
-            )}
-            {step === 6 && (
-              <StepContact
-                data={data}
-                update={update}
-              />
-            )}
-            {step === 7 && <StepReview data={data} />}
-
-            <div className="mt-auto pt-8 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={back}
-                disabled={step === 1}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-5 py-3 text-[11px] uppercase tracking-[0.22em] transition-all",
-                  step === 1
-                    ? "text-ivory-dim cursor-not-allowed opacity-50"
-                    : "text-ivory-soft hover:text-champagne ring-1 ring-smoke hover:ring-champagne/40"
-                )}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
-                Back
-              </button>
-
-              {step < 7 ? (
-                <button
-                  type="button"
-                  onClick={next}
-                  disabled={!canAdvance}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full px-6 py-3 text-[11px] uppercase tracking-[0.22em] font-medium transition-all",
-                    canAdvance
-                      ? "bg-champagne text-obsidian hover:bg-champagne-bright shadow-glow-champagne"
-                      : "bg-charcoal-light/40 text-ivory-dim ring-1 ring-smoke cursor-not-allowed"
-                  )}
-                >
-                  Continue
-                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={submit}
-                  className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[11px] uppercase tracking-[0.22em] font-medium bg-champagne text-obsidian hover:bg-champagne-bright shadow-glow-champagne transition-all"
-                >
-                  Submit demo request
-                  <Send className="w-3.5 h-3.5" strokeWidth={1.5} />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        </AnimatePresence>
+      {/* Mobile summary first */}
+      <div className="lg:hidden mb-5">
+        <RequestSummary request={data} variant="mobile" />
       </div>
 
-      <p className="mt-5 text-center text-[11px] uppercase tracking-[0.22em] text-ivory-dim">
-        Demo flow · No real booking is created
-      </p>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
+        {/* Form */}
+        <div className="lg:col-span-8">
+          <Stepper current={step} onJump={(n) => n < step && setStep(n)} />
+
+          <div className="mt-6 md:mt-8 rounded-3xl border border-smoke bg-charcoal/60 backdrop-blur-xl shadow-panel">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
+                className="p-6 md:p-9 min-h-[60vh] flex flex-col"
+              >
+                {step === 1 && (
+                  <StepCityStyle
+                    value={data.cityStyle ?? ""}
+                    onChange={(v) =>
+                      update("cityStyle", v as ConciergeRequest["cityStyle"])
+                    }
+                  />
+                )}
+                {step === 2 && (
+                  <StepAccess
+                    value={data.accessType ?? ""}
+                    onChange={(v) =>
+                      update("accessType", v as ConciergeRequest["accessType"])
+                    }
+                  />
+                )}
+                {step === 3 && (
+                  <StepParty
+                    size={data.groupSize ?? ""}
+                    date={data.date ?? ""}
+                    onSize={(v) =>
+                      update("groupSize", v as ConciergeRequest["groupSize"])
+                    }
+                    onDate={(v) => update("date", v)}
+                  />
+                )}
+                {step === 4 && (
+                  <StepVibe
+                    atmosphere={data.atmosphere ?? ""}
+                    occasion={data.occasion ?? ""}
+                    onAtmosphere={(v) =>
+                      update("atmosphere", v as ConciergeRequest["atmosphere"])
+                    }
+                    onOccasion={(v) => update("occasion", v)}
+                  />
+                )}
+                {step === 5 && (
+                  <StepSpend
+                    value={data.spendRange ?? ""}
+                    onChange={(v) =>
+                      update("spendRange", v as ConciergeRequest["spendRange"])
+                    }
+                  />
+                )}
+                {step === 6 && <StepContact data={data} update={update} />}
+                {step === 7 && <StepMatch data={data} />}
+
+                <div className="mt-auto pt-8 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={back}
+                    disabled={step === 1}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full px-5 py-3 text-[11px] uppercase tracking-[0.22em] transition-all",
+                      step === 1
+                        ? "text-ivory-dim cursor-not-allowed opacity-50"
+                        : "text-ivory-soft hover:text-champagne ring-1 ring-smoke hover:ring-champagne/40"
+                    )}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    Back
+                  </button>
+
+                  {step < 7 ? (
+                    <button
+                      type="button"
+                      onClick={next}
+                      disabled={!canAdvance}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full px-6 py-3 text-[11px] uppercase tracking-[0.22em] font-medium transition-all",
+                        canAdvance
+                          ? "bg-champagne text-obsidian hover:bg-champagne-bright shadow-glow-champagne"
+                          : "bg-charcoal-light/40 text-ivory-dim ring-1 ring-smoke cursor-not-allowed"
+                      )}
+                    >
+                      Continue
+                      <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={submit}
+                      className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[11px] uppercase tracking-[0.22em] font-medium bg-champagne text-obsidian hover:bg-champagne-bright shadow-glow-champagne transition-all"
+                    >
+                      Submit demo request
+                      <Send className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <p className="mt-5 text-center lg:text-left text-[11px] uppercase tracking-[0.22em] text-ivory-dim">
+            Demo flow · No real booking is created · Frontend logic only
+          </p>
+        </div>
+
+        {/* Desktop summary rail */}
+        <div className="hidden lg:block lg:col-span-4">
+          <RequestSummary request={data} variant="rail" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -293,16 +312,12 @@ function Stepper({
             aria-label={`Jump to step ${s.n}: ${s.label}`}
             className={cn(
               "h-1 flex-1 rounded-full transition-colors",
-              s.n < current
-                ? "bg-champagne"
-                : s.n === current
-                ? "bg-champagne"
-                : "bg-smoke"
+              s.n <= current ? "bg-champagne" : "bg-smoke"
             )}
           />
         ))}
       </div>
-      <div className="mt-4 hidden md:flex items-center justify-between text-[10px] uppercase tracking-[0.22em]">
+      <div className="mt-4 hidden md:flex items-center justify-between text-[10px] uppercase tracking-[0.22em] gap-2">
         {steps.map((s) => {
           const Icon = s.icon;
           const done = s.n < current;
@@ -310,11 +325,11 @@ function Stepper({
           return (
             <div
               key={s.n}
-              className="flex items-center gap-2 flex-1 first:justify-start last:justify-end"
+              className="flex items-center gap-1.5 first:justify-start last:justify-end"
             >
               <span
                 className={cn(
-                  "h-6 w-6 rounded-full ring-1 flex items-center justify-center transition-colors",
+                  "h-6 w-6 rounded-full ring-1 flex items-center justify-center transition-colors shrink-0",
                   done
                     ? "bg-champagne text-obsidian ring-champagne"
                     : active
@@ -328,7 +343,12 @@ function Stepper({
                   <Icon className="w-3 h-3" strokeWidth={1.5} />
                 )}
               </span>
-              <span className={cn(active ? "text-ivory" : done ? "text-ivory-soft" : "text-ivory-dim")}>
+              <span
+                className={cn(
+                  "hidden xl:inline",
+                  active ? "text-ivory" : done ? "text-ivory-soft" : "text-ivory-dim"
+                )}
+              >
                 {s.label}
               </span>
             </div>
@@ -401,7 +421,7 @@ function OptionCard({
   );
 }
 
-function StepCity({
+function StepCityStyle({
   value,
   onChange,
 }: {
@@ -411,31 +431,38 @@ function StepCity({
   return (
     <>
       <StepHeading
-        eyebrow="Step 01 · City"
-        title="Where do you want the night?"
-        description="Each city carries its own demand signal and routing logic. Choose the market for the request."
+        eyebrow="Step 01 · Market style"
+        title="Where should the night live?"
+        description="Each market style routes the request differently — tempo, room style, lead time, hosted spend."
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {cities.map((c) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
+        {cityStyles.map((s) => (
           <OptionCard
-            key={c.slug}
-            selected={value === c.slug}
-            onClick={() => onChange(c.slug)}
+            key={s.id}
+            selected={value === s.id}
+            onClick={() => onChange(s.id)}
           >
             <div className="flex items-center justify-between gap-3">
               <p className="font-display text-xl md:text-2xl tracking-tight text-ivory">
-                {c.name}
+                {s.name}
               </p>
               <span className="text-[10px] uppercase tracking-[0.22em] text-ivory-soft">
-                {c.region}
+                {s.tempo}
               </span>
             </div>
             <p className="mt-1.5 text-xs text-ivory-soft leading-relaxed line-clamp-2">
-              {c.headline}
+              {s.description}
             </p>
-            <p className="mt-3 text-[10px] uppercase tracking-[0.22em] text-champagne">
-              {c.demandLevel} · {c.leadTime}
-            </p>
+            <div className="mt-3 flex flex-wrap gap-1">
+              {s.signature.slice(0, 3).map((sig) => (
+                <span
+                  key={sig}
+                  className="text-[9px] uppercase tracking-[0.18em] text-ivory-soft bg-charcoal-light/60 ring-1 ring-smoke rounded-full px-2 py-0.5"
+                >
+                  {sig}
+                </span>
+              ))}
+            </div>
           </OptionCard>
         ))}
       </div>
@@ -454,10 +481,10 @@ function StepAccess({
     <>
       <StepHeading
         eyebrow="Step 02 · Access"
-        title="What kind of night is this?"
-        description="The access type controls which fields the form captures next."
+        title="What kind of room?"
+        description="Access type controls the routing and the fields the platform collects next."
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {accessTypes.map((a) => (
           <OptionCard
             key={a.id}
@@ -467,7 +494,7 @@ function StepAccess({
             <p className="font-display text-xl tracking-tight text-ivory">{a.name}</p>
             <p className="mt-1 text-xs text-ivory-soft leading-relaxed">{a.short}</p>
             <ul className="mt-3 flex flex-wrap gap-1.5">
-              {a.collects.map((c) => (
+              {a.collects.slice(0, 4).map((c) => (
                 <li
                   key={c}
                   className="text-[10px] uppercase tracking-[0.16em] text-ivory-soft bg-charcoal-light/60 ring-1 ring-smoke rounded-full px-2 py-0.5"
@@ -500,15 +527,15 @@ function StepParty({
       <StepHeading
         eyebrow="Step 03 · Party"
         title="How big and when?"
-        description="Party size and target date set the routing window."
+        description="Group size and target date set the routing window."
       />
       <div className="grid gap-7">
         <div>
           <label className="text-[10px] uppercase tracking-[0.22em] text-ivory-dim mb-3 block">
-            Party size
+            Group size
           </label>
           <div className="flex flex-wrap gap-2">
-            {partySizeOptions.map((s) => (
+            {groupSizeOptions.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -520,7 +547,7 @@ function StepParty({
                     : "border-smoke bg-charcoal-light/40 text-ivory-soft hover:border-champagne/40 hover:text-champagne"
                 )}
               >
-                {s}
+                Party of {s}
               </button>
             ))}
           </div>
@@ -548,7 +575,7 @@ function StepParty({
             />
           </div>
           <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-ivory-dim">
-            Lead time varies by city. Demo only — no real availability check.
+            Lead time varies by market. Demo only — no live availability check.
           </p>
         </div>
       </div>
@@ -557,22 +584,22 @@ function StepParty({
 }
 
 function StepVibe({
-  vibe,
+  atmosphere,
   occasion,
-  onVibe,
+  onAtmosphere,
   onOccasion,
 }: {
-  vibe: string;
+  atmosphere: string;
   occasion: string;
-  onVibe: (v: string) => void;
+  onAtmosphere: (v: string) => void;
   onOccasion: (v: string) => void;
 }) {
   return (
     <>
       <StepHeading
         eyebrow="Step 04 · Vibe"
-        title="What atmosphere are you after?"
-        description="Vibe and occasion narrow the request to the right room style."
+        title="What atmosphere fits the night?"
+        description="Atmosphere and occasion narrow the request to the right room style."
       />
       <div className="grid gap-7">
         <div>
@@ -580,11 +607,11 @@ function StepVibe({
             Atmosphere
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-            {vibeOptions.map((v) => (
+            {atmosphereOptions.map((v) => (
               <OptionCard
                 key={v.value}
-                selected={vibe === v.value}
-                onClick={() => onVibe(v.value)}
+                selected={atmosphere === v.value}
+                onClick={() => onAtmosphere(v.value)}
                 className="p-4"
               >
                 <p className="text-sm text-ivory">{v.value}</p>
@@ -600,17 +627,17 @@ function StepVibe({
           <div className="flex flex-wrap gap-2">
             {occasionOptions.map((o) => (
               <button
-                key={o.value}
+                key={o}
                 type="button"
-                onClick={() => onOccasion(o.value)}
+                onClick={() => onOccasion(o)}
                 className={cn(
                   "rounded-full px-4 py-2 text-sm transition-all border",
-                  occasion === o.value
+                  occasion === o
                     ? "bg-champagne text-obsidian border-champagne shadow-glow-champagne"
                     : "border-smoke bg-charcoal-light/40 text-ivory-soft hover:border-champagne/40 hover:text-champagne"
                 )}
               >
-                {o.value}
+                {o}
               </button>
             ))}
           </div>
@@ -620,7 +647,7 @@ function StepVibe({
   );
 }
 
-function StepBudget({
+function StepSpend({
   value,
   onChange,
 }: {
@@ -630,12 +657,12 @@ function StepBudget({
   return (
     <>
       <StepHeading
-        eyebrow="Step 05 · Budget"
-        title="What's the spend range?"
-        description="Budget ranges qualify the request and route to the right tier."
+        eyebrow="Step 05 · Spend"
+        title="What's the hosted spend?"
+        description="Spend ranges qualify the request and route it to the right tier."
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-        {budgetOptions.map((b) => (
+        {spendOptions.map((b) => (
           <OptionCard
             key={b.value}
             selected={value === b.value}
@@ -662,8 +689,8 @@ function StepContact({
   data,
   update,
 }: {
-  data: FormState;
-  update: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
+  data: ConciergeRequest;
+  update: <K extends keyof ConciergeRequest>(k: K, v: ConciergeRequest[K]) => void;
 }) {
   return (
     <>
@@ -676,7 +703,7 @@ function StepContact({
         <Field
           label="Full name"
           required
-          value={data.name}
+          value={data.name ?? ""}
           onChange={(v) => update("name", v)}
           placeholder="First Last"
         />
@@ -684,22 +711,22 @@ function StepContact({
           label="Email"
           required
           type="email"
-          value={data.email}
+          value={data.email ?? ""}
           onChange={(v) => update("email", v)}
           placeholder="you@domain.com"
         />
         <Field
           label="Phone (optional)"
           type="tel"
-          value={data.phone}
+          value={data.phone ?? ""}
           onChange={(v) => update("phone", v)}
           placeholder="Optional"
         />
         <Field
           label="Tier preference"
           asSelect
-          value={data.tier}
-          onChange={(v) => update("tier", v)}
+          value={data.tier ?? "guest"}
+          onChange={(v) => update("tier", v as ConciergeRequest["tier"])}
           options={[
             { value: "guest", label: "Guest" },
             { value: "select", label: "Select" },
@@ -709,13 +736,13 @@ function StepContact({
       </div>
       <div className="mt-5">
         <label className="text-[10px] uppercase tracking-[0.22em] text-ivory-dim mb-2 block">
-          Anything else? (optional)
+          Special request (optional)
         </label>
         <textarea
-          value={data.notes}
+          value={data.notes ?? ""}
           onChange={(e) => update("notes", e.target.value)}
           rows={4}
-          placeholder="Names of guests of honor, dietary, music notes, etc."
+          placeholder="Names of guests of honor, dietary, music notes, late-arrival routing, etc."
           className="w-full rounded-xl bg-charcoal-light/40 border border-smoke focus:border-champagne/50 outline-none px-4 py-3 text-sm text-ivory placeholder:text-ivory-dim transition-colors resize-none"
         />
       </div>
@@ -773,49 +800,55 @@ function Field({
   );
 }
 
-function StepReview({ data }: { data: FormState }) {
-  const city = cities.find((c) => c.slug === data.city);
-  const access = accessTypes.find((a) => a.id === data.accessType);
-
-  const rows: { label: string; value: string }[] = [
-    { label: "City", value: city ? `${city.name} · ${city.region}` : "—" },
-    { label: "Access type", value: access ? access.name : "—" },
-    { label: "Date", value: data.date || "—" },
-    { label: "Party size", value: data.partySize || "—" },
-    { label: "Occasion", value: data.occasion || "—" },
-    { label: "Atmosphere", value: data.vibe || "—" },
-    { label: "Budget range", value: data.budgetRange || "—" },
-    { label: "Tier", value: data.tier },
-    { label: "Name", value: data.name },
-    { label: "Email", value: data.email },
-    { label: "Phone", value: data.phone || "—" },
-    { label: "Notes", value: data.notes || "—" },
-  ];
+function StepMatch({ data }: { data: ConciergeRequest }) {
+  const match = useMemo(() => matchAccess(data), [data]);
+  const cityStyle = getCityStyle(data.cityStyle);
 
   return (
     <>
       <StepHeading
-        eyebrow="Step 07 · Review"
-        title="Review the request."
-        description="One screen, full summary. This is where a real platform would qualify, route, and respond."
+        eyebrow="Step 07 · Match"
+        title="Your routed best fit."
+        description="A simulated match generated from the request signal. The same logic re-skins for restaurants, charters, members clubs, and concierge marketplaces."
       />
-      <div className="rounded-2xl border border-smoke bg-charcoal-light/40 divide-y divide-smoke/40">
-        {rows.map((r) => (
-          <div
-            key={r.label}
-            className="grid grid-cols-12 items-center gap-3 px-4 md:px-6 py-3.5"
-          >
-            <span className="col-span-5 md:col-span-4 text-[10px] uppercase tracking-[0.22em] text-ivory-dim">
-              {r.label}
-            </span>
-            <span className="col-span-7 md:col-span-8 text-sm text-ivory truncate">
-              {r.value}
-            </span>
-          </div>
-        ))}
+
+      {match ? (
+        <AccessMatch match={match} variant="inline" />
+      ) : (
+        <div className="rounded-2xl border border-smoke bg-charcoal-light/40 p-8 text-center">
+          <p className="text-sm text-ivory-soft">
+            Add more signal to generate a match.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-7 rounded-2xl border border-smoke bg-charcoal-light/30 backdrop-blur p-5">
+        <p className="text-[10px] uppercase tracking-[0.32em] text-champagne mb-2.5">
+          Request snapshot
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+          {[
+            { l: "Market", v: cityStyle?.name },
+            { l: "Access", v: data.accessType },
+            { l: "Atmosphere", v: data.atmosphere },
+            { l: "Group", v: data.groupSize ? `Party of ${data.groupSize}` : "—" },
+            { l: "Date", v: data.date },
+            { l: "Spend", v: data.spendRange },
+          ].map((x) => (
+            <div key={x.l}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-ivory-dim">
+                {x.l}
+              </p>
+              <p className="text-sm text-ivory mt-0.5 truncate">
+                {x.v && x.v !== "" ? x.v : "—"}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
+
       <p className="mt-4 text-[11px] uppercase tracking-[0.22em] text-ivory-dim">
-        On submit, the demo confirmation explains the system logic. No real booking is created.
+        On submit, the demo confirmation locks in this match. No real booking is created.
       </p>
     </>
   );
@@ -827,81 +860,101 @@ function Confirmation({
   data,
   onReset,
 }: {
-  data: FormState;
+  data: ConciergeRequest;
   onReset: () => void;
 }) {
-  const city = cities.find((c) => c.slug === data.city);
-  const access = accessTypes.find((a) => a.id === data.accessType);
+  const match = matchAccess(data);
+  const cityStyle = getCityStyle(data.cityStyle);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: [0.22, 0.61, 0.36, 1] }}
-      className="rounded-3xl border border-smoke bg-charcoal/60 backdrop-blur-xl p-7 md:p-12 relative overflow-hidden"
+      className="relative"
     >
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
-      <div className="absolute -top-32 -right-32 w-72 h-72 rounded-full bg-champagne/[0.08] blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 w-72 h-72 rounded-full bg-velvet/[0.06] blur-3xl pointer-events-none" />
+      <div className="rounded-3xl border border-smoke bg-charcoal/60 backdrop-blur-xl p-7 md:p-12 relative overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-champagne to-transparent" />
+        <div className="absolute -top-32 -right-32 w-72 h-72 rounded-full bg-champagne/[0.08] blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -left-32 w-72 h-72 rounded-full bg-velvet/[0.06] blur-3xl pointer-events-none" />
 
-      <div className="relative">
-        <motion.div
-          initial={{ scale: 0.6, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
-          className="h-14 w-14 rounded-full bg-champagne/10 ring-1 ring-champagne/40 flex items-center justify-center text-champagne"
-        >
-          <CheckCircle2 className="w-6 h-6" strokeWidth={1.5} />
-        </motion.div>
-
-        <p className="mt-7 text-[10px] uppercase tracking-[0.32em] text-champagne flex items-center gap-3">
-          <span className="h-px w-8 bg-champagne/60" />
-          Demo request created
-        </p>
-        <h2 className="mt-3 font-display text-4xl md:text-6xl tracking-tightest text-ivory leading-[1.0]">
-          Request received,{" "}
-          <span className="italic champagne-text">in concept.</span>
-        </h2>
-        <p className="mt-5 max-w-2xl text-base text-ivory-soft leading-relaxed">
-          {CONFIRMATION_MESSAGE}
-        </p>
-
-        <div className="mt-9 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-          <Summary label="Routing" value={`${city?.name ?? "—"} · ${city?.region ?? ""}`} />
-          <Summary label="Access" value={access?.name ?? "—"} />
-          <Summary label="Window" value={`${data.partySize || "—"} · ${data.date || "—"}`} />
-        </div>
-
-        <div className="mt-9 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onReset}
-            className="rounded-full border border-smoke bg-charcoal-light/40 px-6 py-4 text-[11px] uppercase tracking-[0.22em] text-ivory-soft hover:border-champagne/40 hover:text-champagne transition-colors"
+        <div className="relative">
+          <motion.div
+            initial={{ scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
+            className="h-14 w-14 rounded-full bg-champagne/10 ring-1 ring-champagne/40 flex items-center justify-center text-champagne"
           >
-            Start a new demo request
-          </button>
-          <a
-            href="/case-study"
-            className="rounded-full bg-champagne text-obsidian px-6 py-4 text-[11px] uppercase tracking-[0.22em] font-medium hover:bg-champagne-bright shadow-glow-champagne transition-all text-center inline-flex items-center justify-center gap-2"
-          >
-            Read the case study
-            <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
-          </a>
-        </div>
+            <CheckCircle2 className="w-6 h-6" strokeWidth={1.5} />
+          </motion.div>
 
-        <div className="mt-10 pt-7 border-t border-smoke/60">
-          <p className="text-[10px] uppercase tracking-[0.32em] text-ivory-dim mb-3">
-            What this demonstrates
+          <p className="mt-7 text-[10px] uppercase tracking-[0.32em] text-champagne flex items-center gap-3">
+            <span className="h-px w-8 bg-champagne/60" />
+            Demo request received
           </p>
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-ivory-soft">
-            <li>· Premium UX and motion across a full request flow.</li>
-            <li>· Marketplace structure with city, venue, and drop layers.</li>
-            <li>· Conversion-focused steps with option cards and review.</li>
-            <li>· Tier routing and lead qualification logic.</li>
-            <li>· Mobile-first UI with sticky CTA and drawer filters.</li>
-            <li>· Portfolio-safe framing throughout.</li>
-          </ul>
+          <h2 className="mt-3 font-display text-4xl md:text-6xl tracking-tightest text-ivory leading-[1.0]">
+            Routed,{" "}
+            <span className="italic champagne-text">in concept.</span>
+          </h2>
+          <p className="mt-5 max-w-2xl text-base text-ivory-soft leading-relaxed">
+            {CONFIRMATION_MESSAGE}
+          </p>
+
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <Summary
+              label="Routing"
+              value={cityStyle ? cityStyle.name : "—"}
+            />
+            <Summary
+              label="Access"
+              value={match?.experience.accessTypeName ?? "—"}
+            />
+            <Summary
+              label="Window"
+              value={`${data.groupSize ? `Party of ${data.groupSize}` : "—"} · ${
+                data.date || "—"
+              }`}
+            />
+          </div>
         </div>
+      </div>
+
+      {/* Match echo */}
+      {match && (
+        <div className="mt-5">
+          <AccessMatch match={match} />
+        </div>
+      )}
+
+      <div className="mt-7 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={onReset}
+          className="rounded-full border border-smoke bg-charcoal-light/40 px-6 py-4 text-[11px] uppercase tracking-[0.22em] text-ivory-soft hover:border-champagne/40 hover:text-champagne transition-colors"
+        >
+          Start a new demo request
+        </button>
+        <Link
+          href="/case-study"
+          className="rounded-full bg-champagne text-obsidian px-6 py-4 text-[11px] uppercase tracking-[0.22em] font-medium hover:bg-champagne-bright shadow-glow-champagne transition-all text-center inline-flex items-center justify-center gap-2"
+        >
+          Read the case study
+          <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={1.5} />
+        </Link>
+      </div>
+
+      <div className="mt-10 pt-7 border-t border-smoke/60">
+        <p className="text-[10px] uppercase tracking-[0.32em] text-ivory-dim mb-3">
+          What this demonstrates
+        </p>
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-ivory-soft">
+          <li>· Premium UX and motion across a full request flow.</li>
+          <li>· Marketplace structure indexed by city style and access type.</li>
+          <li>· Live request summary with real-time signal indicator.</li>
+          <li>· Frontend matching logic (matchAccess) with confidence levels.</li>
+          <li>· Tier-aware routing and lead qualification logic.</li>
+          <li>· Mobile-first UI with sticky CTA and collapsible summary.</li>
+        </ul>
       </div>
     </motion.div>
   );
@@ -915,3 +968,4 @@ function Summary({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
