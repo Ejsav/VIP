@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0A0A0B;
+  --bg-deep: #050507;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+  background: var(--bg);
+  color: #EDE6D6;
+}
+
+body {
+  font-feature-settings: "ss01", "cv11";
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(201,169,97,0.06), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(122,20,40,0.05), transparent 60%),
+    linear-gradient(180deg, #0A0A0B 0%, #050507 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Selection */
+::selection {
+  background: #C9A961;
+  color: #0A0A0B;
+}
+
+/* Scrollbar (subtle) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0A0A0B; }
+::-webkit-scrollbar-thumb {
+  background: #1C1C24;
+  border-radius: 999px;
+  border: 2px solid #0A0A0B;
+}
+::-webkit-scrollbar-thumb:hover { background: #2A2A30; }
+
+/* Hide-scrollbar util for chip rows */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Editorial display tweaks */
+.font-display {
+  font-feature-settings: "ss01", "ss02", "lnum";
+  font-optical-sizing: auto;
+}
+
+/* Ambient grain overlay */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: overlay;
+  opacity: 0.06;
+}
+
+/* Hairline divider */
+.hairline {
+  background: linear-gradient(90deg, transparent, rgba(201,169,97,0.4), transparent);
+  height: 1px;
+}
+
+/* Champagne text */
+.champagne-text {
+  background: linear-gradient(135deg, #E0C176 0%, #C9A961 50%, #9C8447 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Subtle border glow on hover */
+.glow-border {
+  position: relative;
+  isolation: isolate;
+}
+.glow-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(201,169,97,0.35), rgba(201,169,97,0) 40%, rgba(201,169,97,0) 60%, rgba(201,169,97,0.25));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  transition: opacity .35s ease;
+  pointer-events: none;
+}
+.glow-border:hover::before { opacity: 1; }
+
+/* Marquee for shimmer chip lines */
+.shine {
+  background: linear-gradient(110deg, transparent 0%, transparent 40%, rgba(201,169,97,0.25) 50%, transparent 60%, transparent 100%);
+  background-size: 200% 100%;
+}
+
+/* Make focus rings premium */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px #0A0A0B, 0 0 0 3px rgba(201,169,97,0.6);
+  border-radius: 6px;
+}
+
+/* Prevent layout shift from sticky mobile CTA */
+@media (max-width: 768px) {
+  body { padding-bottom: env(safe-area-inset-bottom); }
+}
