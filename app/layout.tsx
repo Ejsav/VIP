@@ -5,6 +5,8 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { MobileStickyCTA } from "@/components/layout/MobileStickyCTA";
 import { AmbientBackground } from "@/components/layout/AmbientBackground";
+import { VerticalProvider } from "@/lib/VerticalContext";
+import { VerticalSwitcher } from "@/components/system/VerticalSwitcher";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -55,11 +57,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body className="font-sans bg-obsidian text-ivory antialiased grain selection:bg-champagne selection:text-obsidian">
-        <AmbientBackground />
-        <Navbar />
-        <main className="relative z-10">{children}</main>
-        <Footer />
-        <MobileStickyCTA />
+        <VerticalProvider>
+          <AmbientBackground />
+          <Navbar />
+          <main className="relative z-10">{children}</main>
+          <Footer />
+          <MobileStickyCTA />
+          <VerticalSwitcher variant="rail" />
+        </VerticalProvider>
       </body>
     </html>
   );

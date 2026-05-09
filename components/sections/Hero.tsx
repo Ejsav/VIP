@@ -1,9 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 import { LuxuryLink } from "@/components/ui/LuxuryButton";
 import { ConceptBadge } from "@/components/ui/ConceptBadge";
+import { VerticalSwitcher } from "@/components/system/VerticalSwitcher";
+import { useVertical } from "@/lib/VerticalContext";
 import { ProductDashboardMockup } from "./ProductDashboardMockup";
 
 const proofPoints = [
@@ -14,6 +16,9 @@ const proofPoints = [
 ];
 
 export function Hero() {
+  const { vertical, isAdapted } = useVertical();
+  const v = vertical;
+
   return (
     <section className="relative pt-28 md:pt-36 pb-20 md:pb-28 overflow-hidden">
       {/* Vignettes */}
@@ -38,7 +43,18 @@ export function Hero() {
             <span className="h-px w-8 bg-champagne/60" />
             <span>The Afterlist</span>
             <span className="text-ivory-dim">/</span>
-            <span className="text-ivory-soft">Premium nightlife access</span>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={v.id}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.3 }}
+                className="text-ivory-soft"
+              >
+                {v.hero.eyebrow}
+              </motion.span>
+            </AnimatePresence>
           </motion.div>
 
           <motion.h1
@@ -47,10 +63,21 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.1, ease: [0.22, 0.61, 0.36, 1] }}
             className="font-display text-[clamp(2.6rem,8vw,6.5rem)] leading-[0.95] tracking-tightest text-ivory max-w-5xl"
           >
-            Private access
-            <br />
-            to the city{" "}
-            <span className="champagne-text italic">after dark.</span>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={v.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.55, ease: [0.22, 0.61, 0.36, 1] }}
+                className="block"
+              >
+                {v.hero.titleA}
+                <br />
+                <span className="champagne-text italic">{v.hero.titleAccent}</span>{" "}
+                {v.hero.titleB}
+              </motion.span>
+            </AnimatePresence>
           </motion.h1>
 
           <motion.p
@@ -59,10 +86,19 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.25, ease: [0.22, 0.61, 0.36, 1] }}
             className="max-w-2xl text-base md:text-lg text-ivory-soft leading-relaxed"
           >
-            The Afterlist is a fictional premium nightlife access platform for guest
-            lists, private tables, rooftops, members-only rooms, and concierge-style
-            night plans, designed as a portfolio product by{" "}
-            <span className="text-ivory">Eric Jokl</span>.
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={v.id}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.4 }}
+                className="block"
+              >
+                {v.hero.description} A fictional product concept by{" "}
+                <span className="text-ivory">Eric Jokl</span>.
+              </motion.span>
+            </AnimatePresence>
           </motion.p>
 
           <motion.div
@@ -72,11 +108,20 @@ export function Hero() {
             className="flex flex-wrap items-center gap-3"
           >
             <LuxuryLink href="/request" arrow>
-              Request Access
+              {v.hero.primaryCta}
             </LuxuryLink>
-            <LuxuryLink href="/cities" variant="secondary" arrow>
-              Explore the Network
+            <LuxuryLink href="/experiences" variant="secondary" arrow>
+              {v.hero.secondaryCta}
             </LuxuryLink>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
+            className="mt-2 md:mt-4 max-w-3xl w-full"
+          >
+            <VerticalSwitcher />
           </motion.div>
 
           <motion.div
@@ -112,9 +157,13 @@ export function Hero() {
         >
           <div className="flex items-center gap-3">
             <ArrowDown className="w-3.5 h-3.5 animate-pulse" strokeWidth={1.5} />
-            <span>Eight cities · One request flow · Three membership tiers</span>
+            <span>
+              {isAdapted
+                ? `Re-skinned for ${v.name.toLowerCase()} · same matcher, same primitives`
+                : "Eight cities · One request flow · Three membership tiers"}
+            </span>
           </div>
-          <span className="hidden md:inline">Concept · v1.0 · By Eric Jokl</span>
+          <span className="hidden md:inline">Concept · v2.0 · By Eric Jokl</span>
         </motion.div>
       </div>
     </section>
